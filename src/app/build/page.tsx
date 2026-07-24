@@ -1,21 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   PackageSearch, Wrench, ChevronLeft, MonitorPlay, Speaker, Lightbulb, 
   IndianRupee, Image as ImageIcon, X, Trash2, Edit3, PlusCircle, Unlock, 
-  UserCircle, LogOut, ArrowRight, Tags
+  UserCircle, LogOut, ArrowRight, Tags, Loader2
 } from "lucide-react";
 
 interface Product {
-  id: string;
+  _id?: string;
+  id?: string;
   category: string;
   name: string;
   price: string;
   description: string;
   image: string;
+}
+
+interface Category {
+  _id?: string;
+  id: string;
+  title: string;
 }
 
 const ADMIN_EMAIL = "admin@expresscarzone.com";
@@ -36,51 +43,51 @@ export default function BuildPage() {
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // Dynamic Categories State
-  const [categories, setCategories] = useState([
+  // DB Data States
+  const [categories, setCategories] = useState<Category[]>([
     { id: "multimedia", title: "Multimedia" },
     { id: "speaker", title: "Speakers" },
     { id: "led", title: "LED Lights" },
   ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-
-  const [products, setProducts] = useState<Product[]>([
-    { 
-      id: "1", category: "multimedia", name: "Monoblanch Android System 9” TS7 4+64 Basic", price: "7,500.00",
-      description: "A reliable entry-level 9-inch Android multimedia system. Features a TS7 processor, 4GB RAM, and 64GB storage.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Monoblanch+9-Inch"
-    },
-    { 
-      id: "2", category: "multimedia", name: "Alpha Android System 9” A100 4+64G CP", price: "9,500.00",
-      description: "Upgrade your dashboard with the Alpha A100 series. Includes built-in CarPlay support and a 9-inch IPS display.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Alpha+A100"
-    },
-    { 
-      id: "3", category: "multimedia", name: "NFS Elite Series Infotainment System 9” 2+64G CP", price: "12,500.00",
-      description: "Premium build quality with the NFS Elite Series. Features ultra-responsive touch, wireless CarPlay, and custom UI themes.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=NFS+Elite+Series"
-    },
-    { 
-      id: "4", category: "multimedia", name: "Nakamichi NAM5240 Multimedia Receiver 2+64G CP", price: "15,000.00",
-      description: "High-fidelity audio processing from Nakamichi with advanced EQ settings paired with a snappy 9-inch smart interface.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Nakamichi+NAM5240"
-    },
-    { 
-      id: "6", category: "speaker", name: "Zella Electra Car Speaker 6” 600W", price: "1,800.00",
-      description: "An affordable yet powerful audio upgrade pushing 600W peak power for punchy mid-bass and clear vocals.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Zella+Electra+600W"
-    },
-    { 
-      id: "11", category: "led", name: "Ultra Audio 180W Tri Colour LED", price: "4,500.00",
-      description: "Switch between white, warm white, and yellow beams instantly for optimal visibility in any weather.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Ultra+180W+Tri-Colour"
-    }
-  ]);
 
   const [newProduct, setNewProduct] = useState({
     name: "", category: "multimedia", price: "", description: "", image: ""
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Fetch Categories & Products from MongoDB API
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [resCats, resProds] = await Promise.all([
+        fetch("/api/categories"),
+        fetch("/api/products")
+      ]);
+      
+      if (resCats.ok) {
+        const catData = await resCats.json();
+        if (catData.length > 0) {
+          setCategories(catData.map((c: any) => ({ id: c.slug || c._id, title: c.title, _id: c._id })));
+        }
+      }
+
+      if (resProds.ok) {
+        const prodData = await resProds.json();
+        setProducts(prodData);
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,37 +114,51 @@ export default function BuildPage() {
     setCurrentView("menu"); 
   };
 
-  // --- Category Management Functions ---
-  const handleAddCategory = (e: React.FormEvent) => {
+  // --- Category Handlers (MongoDB) ---
+  const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
-    const newId = newCategoryName.toLowerCase().replace(/\s+/g, '-');
-    if (categories.find((c) => c.id === newId)) {
-      alert("Category already exists!");
-      return;
+    const newSlug = newCategoryName.toLowerCase().replace(/\s+/g, '-');
+
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newCategoryName, slug: newSlug })
+      });
+
+      if (res.ok) {
+        setNewCategoryName("");
+        fetchData();
+      }
+    } catch (err) {
+      alert("Failed to add category to database.");
     }
-    setCategories([...categories, { id: newId, title: newCategoryName }]);
-    setNewCategoryName("");
   };
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = async (id: string, dbId?: string) => {
     if (categories.length <= 1) {
       alert("You must have at least one category.");
       return;
     }
-    const fallbackCategory = categories.find(c => c.id !== id)?.id || "multimedia";
-    setCategories(categories.filter((c) => c.id !== id));
-    setProducts(products.map(p => p.category === id ? { ...p, category: fallbackCategory } : p));
-    if (activeCategory === id) setActiveCategory(fallbackCategory);
+
+    try {
+      const targetId = dbId || id;
+      const res = await fetch(`/api/categories?id=${targetId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      alert("Failed to delete category.");
+    }
   };
 
-  // --- Product Management Functions ---
-  const handleSaveProduct = (e: React.FormEvent) => {
+  // --- Product Handlers (MongoDB) ---
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.price) return;
 
-    const savedProduct: Product = {
-      id: editingId || Date.now().toString(),
+    const payload = {
       name: newProduct.name,
       category: newProduct.category,
       price: newProduct.price,
@@ -145,18 +166,33 @@ export default function BuildPage() {
       image: newProduct.image || `https://placehold.co/600x400/18181b/eab308?text=${encodeURIComponent(newProduct.name)}`
     };
 
-    if (editingId) {
-      setProducts(products.map(p => p.id === editingId ? savedProduct : p));
-      setEditingId(null);
-    } else {
-      setProducts([savedProduct, ...products]);
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        setNewProduct({ name: "", category: categories[0]?.id || "multimedia", price: "", description: "", image: "" });
+        setEditingId(null);
+        fetchData();
+      }
+    } catch (err) {
+      alert("Failed to save product to database.");
     }
-    
-    setNewProduct({ name: "", category: categories[0]?.id || "multimedia", price: "", description: "", image: "" });
   };
 
-  const handleDeleteProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+  const handleDeleteProduct = async (dbId?: string) => {
+    if (!dbId) return;
+    try {
+      const res = await fetch(`/api/products?id=${dbId}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      alert("Failed to delete product.");
+    }
   };
 
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -203,7 +239,7 @@ export default function BuildPage() {
                 </div>
                 
                 <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-1">Sign In</h2>
-                <p className="text-zinc-500 text-xs text-center mb-6">Log in to track builds or access the owner portal.</p>
+                <p className="text-zinc-500 text-xs text-center mb-6">Log in to access the owner portal.</p>
                 
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
@@ -243,8 +279,8 @@ export default function BuildPage() {
 
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-zinc-900 pb-4">
-          <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest">
-            Express Carzone Studio
+          <div className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+            Express Carzone Studio {isLoading && <Loader2 size={12} className="animate-spin text-yellow-400" />}
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -281,57 +317,6 @@ export default function BuildPage() {
             )}
           </div>
         </div>
-        
-        {/* PRODUCT DETAILS MODAL */}
-        <AnimatePresence>
-          {selectedProduct && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
-              onClick={() => setSelectedProduct(null)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                onClick={(e) => e.stopPropagation()} 
-                className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
-              >
-                <div className="relative h-48 sm:h-60 bg-zinc-900 border-b border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                  <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" />
-                  <button 
-                    onClick={() => setSelectedProduct(null)} 
-                    className="absolute top-4 right-4 p-2 bg-black/70 hover:bg-yellow-500 hover:text-black rounded-full text-white transition-colors"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                
-                <div className="p-5 sm:p-6 overflow-y-auto">
-                  <h2 className="text-xl sm:text-2xl font-black text-yellow-400 mb-1 leading-tight">{selectedProduct.name}</h2>
-                  <p className="text-white font-black text-lg sm:text-xl mb-4 flex items-center">
-                    <IndianRupee size={18} className="mr-1 text-yellow-400" />
-                    {selectedProduct.price}
-                  </p>
-                  
-                  <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-xl mb-6">
-                    <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Description</h4>
-                    <p className="text-zinc-300 text-xs sm:text-sm leading-relaxed">{selectedProduct.description}</p>
-                  </div>
-
-                  <button 
-                    onClick={() => setSelectedProduct(null)} 
-                    className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 rounded-xl transition-colors uppercase tracking-wider text-xs"
-                  >
-                    Close Details
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           
@@ -356,7 +341,7 @@ export default function BuildPage() {
                       <PackageSearch size={28} className="text-yellow-400 group-hover:text-black transition-colors" />
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 group-hover:text-yellow-400 transition-colors">Check out our Products</h2>
-                    <p className="text-zinc-400 text-xs sm:text-sm">Browse our premium selection of multimedia players, speakers, and high-performance LEDs.</p>
+                    <p className="text-zinc-400 text-xs sm:text-sm">Browse our live inventory stored directly in the database.</p>
                   </button>
 
                   <button onClick={() => router.push("/estimator")} className="bg-zinc-950 border border-zinc-800 hover:border-yellow-500 p-6 sm:p-8 rounded-2xl text-left transition-all group">
@@ -388,7 +373,7 @@ export default function BuildPage() {
                 </h1>
               </div>
 
-              {/* Dynamic scrollable tabs */}
+              {/* Dynamic Tabs */}
               <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
                 {categories.map((cat) => {
                   let Icon = Tags;
@@ -413,7 +398,7 @@ export default function BuildPage() {
 
               <motion.div key={activeCategory} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.filter(p => p.category === activeCategory).map((product) => (
-                  <div key={product.id} onClick={() => setSelectedProduct(product)} className="bg-zinc-950 border border-zinc-900 p-5 rounded-2xl hover:border-yellow-500/80 transition-all cursor-pointer flex flex-col justify-between group shadow-lg min-h-[120px]">
+                  <div key={product._id || product.id} onClick={() => setSelectedProduct(product)} className="bg-zinc-950 border border-zinc-900 p-5 rounded-2xl hover:border-yellow-500/80 transition-all cursor-pointer flex flex-col justify-between group shadow-lg min-h-[120px]">
                     <h3 className="text-sm sm:text-base font-bold text-white leading-snug mb-3 group-hover:text-yellow-400 transition-colors">{product.name}</h3>
                     <div className="flex items-center mt-auto pt-3 border-t border-zinc-900">
                       <span className="text-yellow-400 font-black text-base sm:text-lg flex items-center">
@@ -451,11 +436,11 @@ export default function BuildPage() {
                 </div>
               </div>
 
-              {/* BRAND NEW: Manage Categories Panel */}
+              {/* Manage Categories Panel */}
               <div className="bg-zinc-950 border border-zinc-800 p-5 sm:p-8 rounded-2xl space-y-5 shadow-xl">
                 <div className="flex items-center gap-2 border-b border-zinc-900 pb-4">
                   <Tags className="text-yellow-400" size={20} />
-                  <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Manage Categories</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Manage Categories (Cloud Sync)</h3>
                 </div>
                 
                 <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-4">
@@ -477,7 +462,7 @@ export default function BuildPage() {
                     <div key={cat.id} className="bg-black border border-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-3">
                       <span className="text-xs text-zinc-300 font-bold">{cat.title}</span>
                       {categories.length > 1 && (
-                        <button onClick={() => handleDeleteCategory(cat.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                        <button onClick={() => handleDeleteCategory(cat.id, cat._id)} className="text-zinc-600 hover:text-red-400 transition-colors">
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -490,20 +475,11 @@ export default function BuildPage() {
               <form onSubmit={handleSaveProduct} className="bg-zinc-950 border border-zinc-800 p-5 sm:p-8 rounded-2xl space-y-5 shadow-xl">
                 <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
                   <div className="flex items-center gap-2">
-                    {editingId ? <Edit3 className="text-yellow-400" size={20} /> : <PlusCircle className="text-yellow-400" size={20} />}
+                    <PlusCircle className="text-yellow-400" size={20} />
                     <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">
-                      {editingId ? "Edit Product" : "Add Product"}
+                      Add Product to Cloud DB
                     </h3>
                   </div>
-                  {editingId && (
-                    <button 
-                      type="button" 
-                      onClick={() => { setEditingId(null); setNewProduct({ name: "", category: categories[0].id, price: "", description: "", image: "" }); }}
-                      className="text-xs text-zinc-500 hover:text-white uppercase font-bold"
-                    >
-                      Cancel
-                    </button>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -539,21 +515,21 @@ export default function BuildPage() {
                 </div>
 
                 <button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black py-3.5 rounded-xl transition-all uppercase tracking-wider text-xs shadow-lg">
-                  {editingId ? "Update Product" : "+ Add Product to Live Website"}
+                  + Save Product to MongoDB
                 </button>
               </form>
 
               {/* Inventory List */}
               <div className="bg-zinc-950 border border-zinc-800 p-5 sm:p-8 rounded-2xl space-y-4">
                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">
-                  Inventory ({products.length} Products)
+                  Live Database Inventory ({products.length} Products)
                 </h3>
 
                 <div className="space-y-3">
                   {products.map((product) => {
                     const catTitle = categories.find(c => c.id === product.category)?.title || product.category;
                     return (
-                      <div key={product.id} className="bg-black border border-zinc-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div key={product._id || product.id} className="bg-black border border-zinc-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <img src={product.image} alt={product.name} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover bg-zinc-900 border border-zinc-800 shrink-0" />
                           <div>
@@ -567,24 +543,7 @@ export default function BuildPage() {
                         
                         <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-zinc-900 pt-2 sm:pt-0">
                           <button 
-                            onClick={() => {
-                              setEditingId(product.id);
-                              setNewProduct({
-                                name: product.name,
-                                category: product.category,
-                                price: product.price,
-                                description: product.description,
-                                image: product.image
-                              });
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} 
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-yellow-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
-                          >
-                            <Edit3 size={14} /> Edit
-                          </button>
-                          
-                          <button 
-                            onClick={() => handleDeleteProduct(product.id)} 
+                            onClick={() => handleDeleteProduct(product._id)} 
                             className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
                           >
                             <Trash2 size={14} /> Delete
