@@ -6,23 +6,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   PackageSearch, Wrench, ChevronLeft, MonitorPlay, Speaker, Lightbulb, 
   IndianRupee, Image as ImageIcon, X, Trash2, Edit3, PlusCircle, Unlock, 
-  UserCircle, LogOut, ArrowRight
+  UserCircle, LogOut, ArrowRight, Tags
 } from "lucide-react";
 
 interface Product {
   id: string;
-  category: "multimedia" | "speaker" | "led";
+  category: string;
   name: string;
   price: string;
   description: string;
   image: string;
 }
-
-const categoryConfig = {
-  multimedia: { title: "Multimedia", icon: MonitorPlay },
-  speaker: { title: "Speakers", icon: Speaker },
-  led: { title: "LED Lights", icon: Lightbulb },
-};
 
 const ADMIN_EMAIL = "admin@expresscarzone.com";
 const ADMIN_PASSWORD = "8015495535"; 
@@ -31,7 +25,7 @@ export default function BuildPage() {
   const router = useRouter();
   
   const [currentView, setCurrentView] = useState<"menu" | "catalog" | "admin">("menu"); 
-  const [activeCategory, setActiveCategory] = useState<"multimedia" | "speaker" | "led">("multimedia");
+  const [activeCategory, setActiveCategory] = useState<string>("multimedia");
   
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -41,6 +35,14 @@ export default function BuildPage() {
   const [authError, setAuthError] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Dynamic Categories State
+  const [categories, setCategories] = useState([
+    { id: "multimedia", title: "Multimedia" },
+    { id: "speaker", title: "Speakers" },
+    { id: "led", title: "LED Lights" },
+  ]);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const [products, setProducts] = useState<Product[]>([
     { 
@@ -64,64 +66,19 @@ export default function BuildPage() {
       image: "https://placehold.co/600x400/18181b/eab308?text=Nakamichi+NAM5240"
     },
     { 
-      id: "5", category: "multimedia", name: "Unplug Pro Version Multi Media Player T400 Pro 4+64 CP", price: "18,500.00",
-      description: "The ultimate flagship infotainment experience. T400 Pro chipset, 4GB RAM, and QLED display.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Unplug+Pro+T400"
-    },
-    { 
       id: "6", category: "speaker", name: "Zella Electra Car Speaker 6” 600W", price: "1,800.00",
       description: "An affordable yet powerful audio upgrade pushing 600W peak power for punchy mid-bass and clear vocals.",
       image: "https://placehold.co/600x400/18181b/eab308?text=Zella+Electra+600W"
     },
     { 
-      id: "7", category: "speaker", name: "Pioneer Car Component Speaker 6.5” 390W (TS-C6021N)", price: "Price on Request",
-      description: "Legendary Pioneer component acoustics with separate tweeters and woofers for an immersive soundstage.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Pioneer+Component"
-    },
-    { 
-      id: "8", category: "speaker", name: "Pioneer Car Coaxial Speaker 6.5” 300W (TS-G1620S-2)", price: "Price on Request",
-      description: "Excellent drop-in replacement for factory speakers offering crisp highs and solid lows.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Pioneer+Coaxial"
-    },
-    { 
-      id: "9", category: "speaker", name: "Aura Storm Component Speaker 6.5” 260W (6.2CSX)", price: "5,900.00",
-      description: "Aura's premium components deliver audiophile-grade clarity and rich, distortion-free volume.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Aura+Storm+6.5"
-    },
-    { 
-      id: "10", category: "speaker", name: "Blaupunkt Component Speaker 6.5” 390W (tx 65c)", price: "5,800.00",
-      description: "German engineering offering tight, aggressive bass and crystal-clear high frequencies.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Blaupunkt+TX65C"
-    },
-    { 
       id: "11", category: "led", name: "Ultra Audio 180W Tri Colour LED", price: "4,500.00",
       description: "Switch between white, warm white, and yellow beams instantly for optimal visibility in any weather.",
       image: "https://placehold.co/600x400/18181b/eab308?text=Ultra+180W+Tri-Colour"
-    },
-    { 
-      id: "12", category: "led", name: "Ultra Audio 220W Diamond LED", price: "6,500.00",
-      description: "Intense 220W brightness with a flawless diamond-cut beam pattern to prevent blinding oncoming traffic.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Ultra+220W+Diamond"
-    },
-    { 
-      id: "13", category: "led", name: "Battle Beast 250W LED", price: "6,900.00",
-      description: "Turn night into day with insane illumination for highway cruising and off-road adventures.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Battle+Beast+250W"
-    },
-    { 
-      id: "14", category: "led", name: "Auto Yu 180W LED", price: "4,700.00",
-      description: "A highly durable, focused 180W upgrade featuring active cooling for peak brightness longevity.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Auto+Yu+180W"
-    },
-    { 
-      id: "15", category: "led", name: "Vision I 320W LED", price: "7,900.00",
-      description: "The absolute pinnacle of automotive lighting cutting through darkness with an ultra-wide beam.",
-      image: "https://placehold.co/600x400/18181b/eab308?text=Vision+I+320W"
     }
   ]);
 
   const [newProduct, setNewProduct] = useState({
-    name: "", category: "multimedia" as "multimedia" | "speaker" | "led", price: "", description: "", image: ""
+    name: "", category: "multimedia", price: "", description: "", image: ""
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -150,6 +107,31 @@ export default function BuildPage() {
     setCurrentView("menu"); 
   };
 
+  // --- Category Management Functions ---
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    const newId = newCategoryName.toLowerCase().replace(/\s+/g, '-');
+    if (categories.find((c) => c.id === newId)) {
+      alert("Category already exists!");
+      return;
+    }
+    setCategories([...categories, { id: newId, title: newCategoryName }]);
+    setNewCategoryName("");
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    if (categories.length <= 1) {
+      alert("You must have at least one category.");
+      return;
+    }
+    const fallbackCategory = categories.find(c => c.id !== id)?.id || "multimedia";
+    setCategories(categories.filter((c) => c.id !== id));
+    setProducts(products.map(p => p.category === id ? { ...p, category: fallbackCategory } : p));
+    if (activeCategory === id) setActiveCategory(fallbackCategory);
+  };
+
+  // --- Product Management Functions ---
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.price) return;
@@ -170,7 +152,7 @@ export default function BuildPage() {
       setProducts([savedProduct, ...products]);
     }
     
-    setNewProduct({ name: "", category: "multimedia", price: "", description: "", image: "" });
+    setNewProduct({ name: "", category: categories[0]?.id || "multimedia", price: "", description: "", image: "" });
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -406,21 +388,24 @@ export default function BuildPage() {
                 </h1>
               </div>
 
-              {/* Mobile scrollable tabs */}
+              {/* Dynamic scrollable tabs */}
               <div className="flex gap-2 overflow-x-auto pb-3 mb-6 scrollbar-hide">
-                {(Object.keys(categoryConfig) as Array<keyof typeof categoryConfig>).map((key) => {
-                  const category = categoryConfig[key];
-                  const Icon = category.icon;
-                  const isActive = activeCategory === key;
+                {categories.map((cat) => {
+                  let Icon = Tags;
+                  if (cat.id === "multimedia") Icon = MonitorPlay;
+                  if (cat.id === "speaker") Icon = Speaker;
+                  if (cat.id === "led") Icon = Lightbulb;
+                  
+                  const isActive = activeCategory === cat.id;
                   return (
                     <button
-                      key={key}
-                      onClick={() => setActiveCategory(key)}
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
                       className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap transition-all border ${
                         isActive ? "bg-yellow-500 text-black border-yellow-500 shadow-[0_0_15px_rgba(250,204,21,0.2)]" : "bg-transparent text-zinc-400 border-zinc-800 hover:border-zinc-700"
                       }`}
                     >
-                      <Icon size={16} /> {category.title}
+                      <Icon size={16} /> {cat.title}
                     </button>
                   );
                 })}
@@ -451,7 +436,7 @@ export default function BuildPage() {
               exit={{ opacity: 0 }}
               className="max-w-4xl mx-auto space-y-8"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setCurrentView("menu")} className="p-2 bg-zinc-900 rounded-full hover:bg-yellow-500 hover:text-black text-white transition-colors">
                     <ChevronLeft size={20} />
@@ -463,6 +448,41 @@ export default function BuildPage() {
                 
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-zinc-900 border border-zinc-800 text-yellow-400 text-[10px] sm:text-xs font-bold uppercase">
                   <Unlock size={12} /> Unlocked
+                </div>
+              </div>
+
+              {/* BRAND NEW: Manage Categories Panel */}
+              <div className="bg-zinc-950 border border-zinc-800 p-5 sm:p-8 rounded-2xl space-y-5 shadow-xl">
+                <div className="flex items-center gap-2 border-b border-zinc-900 pb-4">
+                  <Tags className="text-yellow-400" size={20} />
+                  <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Manage Categories</h3>
+                </div>
+                
+                <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-4">
+                  <input 
+                    type="text" 
+                    placeholder="New Category (e.g., Detailing, Subwoofers)" 
+                    value={newCategoryName} 
+                    onChange={(e) => setNewCategoryName(e.target.value)} 
+                    required 
+                    className="flex-1 bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white text-xs sm:text-sm focus:border-yellow-500 outline-none" 
+                  />
+                  <button type="submit" className="bg-zinc-800 hover:bg-yellow-500 text-white hover:text-black font-bold px-6 py-3 rounded-xl transition-colors uppercase tracking-wider text-xs">
+                    + Add Category
+                  </button>
+                </form>
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {categories.map((cat) => (
+                    <div key={cat.id} className="bg-black border border-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-3">
+                      <span className="text-xs text-zinc-300 font-bold">{cat.title}</span>
+                      {categories.length > 1 && (
+                        <button onClick={() => handleDeleteCategory(cat.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -478,7 +498,7 @@ export default function BuildPage() {
                   {editingId && (
                     <button 
                       type="button" 
-                      onClick={() => { setEditingId(null); setNewProduct({ name: "", category: "multimedia", price: "", description: "", image: "" }); }}
+                      onClick={() => { setEditingId(null); setNewProduct({ name: "", category: categories[0].id, price: "", description: "", image: "" }); }}
                       className="text-xs text-zinc-500 hover:text-white uppercase font-bold"
                     >
                       Cancel
@@ -493,10 +513,10 @@ export default function BuildPage() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1.5">Category</label>
-                    <select value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value as any })} className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white text-xs sm:text-sm focus:border-yellow-500 outline-none">
-                      <option value="multimedia">Multimedia</option>
-                      <option value="speaker">Speakers</option>
-                      <option value="led">LED Lights</option>
+                    <select value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white text-xs sm:text-sm focus:border-yellow-500 outline-none">
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -530,46 +550,49 @@ export default function BuildPage() {
                 </h3>
 
                 <div className="space-y-3">
-                  {products.map((product) => (
-                    <div key={product.id} className="bg-black border border-zinc-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <img src={product.image} alt={product.name} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover bg-zinc-900 border border-zinc-800 shrink-0" />
-                        <div>
-                          <h4 className="text-white font-bold text-xs sm:text-sm leading-tight">{product.name}</h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-yellow-400 font-bold text-xs">₹{product.price}</span>
-                            <span className="text-zinc-600 text-[10px] uppercase font-medium">{product.category}</span>
+                  {products.map((product) => {
+                    const catTitle = categories.find(c => c.id === product.category)?.title || product.category;
+                    return (
+                      <div key={product.id} className="bg-black border border-zinc-900 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <img src={product.image} alt={product.name} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover bg-zinc-900 border border-zinc-800 shrink-0" />
+                          <div>
+                            <h4 className="text-white font-bold text-xs sm:text-sm leading-tight">{product.name}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-yellow-400 font-bold text-xs">₹{product.price}</span>
+                              <span className="text-zinc-600 text-[10px] uppercase font-medium">{catTitle}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-zinc-900 pt-2 sm:pt-0">
-                        <button 
-                          onClick={() => {
-                            setEditingId(product.id);
-                            setNewProduct({
-                              name: product.name,
-                              category: product.category,
-                              price: product.price,
-                              description: product.description,
-                              image: product.image
-                            });
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }} 
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-yellow-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
-                        >
-                          <Edit3 size={14} /> Edit
-                        </button>
                         
-                        <button 
-                          onClick={() => handleDeleteProduct(product.id)} 
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
+                        <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-zinc-900 pt-2 sm:pt-0">
+                          <button 
+                            onClick={() => {
+                              setEditingId(product.id);
+                              setNewProduct({
+                                name: product.name,
+                                category: product.category,
+                                price: product.price,
+                                description: product.description,
+                                image: product.image
+                              });
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-yellow-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
+                          >
+                            <Edit3 size={14} /> Edit
+                          </button>
+                          
+                          <button 
+                            onClick={() => handleDeleteProduct(product.id)} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-900 rounded-lg transition-colors text-xs font-bold"
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
