@@ -20,34 +20,34 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className={inter.className}>
-        {/* Navigation Bar - Changed to pure black/zinc */}
+        {/* Navigation Bar */}
         <nav className="fixed w-full z-50 bg-black/90 backdrop-blur-md border-b border-zinc-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-20">
-              
+             
               {/* BRANDING: IMAGE + TEXT */}
               <div className="flex-shrink-0 flex items-center">
-                <Link href="/" className="flex items-center gap-3 group hover:scale-105 transition-transform duration-300">
+                <Link href="/" className="flex items-center gap-2 sm:gap-3 group hover:scale-105 transition-transform duration-300">
                   <Image 
                     src="/logo.png" 
                     alt="Express Carzone Logo" 
                     width={60} 
                     height={60} 
-                    className="object-contain h-12 w-auto rounded-md"
+                    className="object-contain h-10 w-auto sm:h-12 rounded-md"
                     priority
                   />
                   <div className="flex flex-col">
-                    <span className="text-yellow-400 font-black text-2xl tracking-wider uppercase group-hover:text-white transition-colors">EXPRESS CARZONE</span>
-                    <span className="text-xs text-zinc-300 font-semibold tracking-widest uppercase hidden sm:block">A UNIT OF M3 CAR ACCESSORIES</span>
+                    <span className="text-yellow-400 font-black text-lg sm:text-2xl tracking-wider uppercase group-hover:text-white transition-colors">EXPRESS CARZONE</span>
+                    <span className="text-[10px] sm:text-xs text-zinc-300 font-semibold tracking-widest uppercase hidden sm:block">A UNIT OF M3 CAR ACCESSORIES</span>
                   </div>
                 </Link>
               </div>
 
-              {/* NAV LINKS */}
-              <div className="hidden md:block">
-                <div className="ml-10 flex items-baseline space-x-6">
-                  <Link href="/contact" className="bg-yellow-500 hover:bg-yellow-400 text-black px-5 py-2.5 rounded-full text-sm font-bold transition-all hover:scale-105 shadow-[0_0_15px_rgba(250,204,21,0.2)]">Contact Us</Link>
-                </div>
+              {/* NAV LINKS - Visible on all screen sizes */}
+              <div className="flex items-center">
+                <Link href="/contact" className="bg-yellow-500 hover:bg-yellow-400 text-black px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all hover:scale-105 shadow-[0_0_15px_rgba(250,204,21,0.2)]">
+                  Contact Us
+                </Link>
               </div>
             </div>
           </div>
@@ -58,7 +58,7 @@ export default function RootLayout({
           {children}
         </main>
 
-        {/* Footer - Changed to pure black/zinc */}
+        {/* Footer */}
         <footer className="bg-black border-t border-zinc-800 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
